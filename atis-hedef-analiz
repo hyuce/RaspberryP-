@@ -1,0 +1,67 @@
+#Gerekli kütüphaneler dahil ediliyor
+import cv2
+import numpy as np
+from shutil import copyfile
+import time
+
+#Kamera ile fotoğraf çekildi fotoğrafın kararmaması için program 1 sn bekletilir
+cap = cv2.VideoCapture(0)
+time.sleep(1)
+_, img = cap.read()
+#Çekilen görüntü kaydedilir
+cv2.imwrite('/home/pi/Documents/goruntu_isleme/birlestirme/cekilen.jpg', img)
+
+#Perspektif düzeltilir
+rows,cols,ch = img.shape
+pts1 = np.float32([[73,131],[562,122],[6,479],[639,479]])
+pts2 = np.float32([[0,0],[842,0],[0,595],[842,595]])
+matrix = cv2.getPerspectiveTransform(pts1, pts2)
+M = cv2.warpPerspective(img, matrix, (842, 595))
+frame = M
+#Perspektifi düzeltilen görüntü kaydedilir
+cv2.imwrite('/home/pi/Documents/goruntu_isleme/birlestirme/perspective.jpg', frame)
+
+#Görüntü maskelemeden önce gerekli çevirim işlemleri yapılır
+gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+bgr = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+
+#Maskeleme yapılacak alan aralığın alt ve üst hsv değerleri kaydedilir
+lower_black = np.array([ 0, 0, 0])
+upper_black = np.array([90,165,100])
+
+#Maskeleme yapılır
+mask = cv2.inRange(hsv, lower_black, upper_black)
+#Maskeleme kaydedilir
+cv2.imwrite('/home/pi/Documents/goruntu_isleme/birlestirme/mask.jpg', mask)
+
+#Maskelenen görüntülerin şekilleri bulunur
+cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[-2]
+center = None
+
+#Şekillerin ağılık merkezi etrafına daire çizilir ve merkezden ne kadar uzakta olduğu hesaplanıp perspektif ile düzeltilen görünütünün üzerine yazdırılır
+if len(cnts) > 1:
+    c = max(cnts, key=cv2.contourArea)
+    ((x, y), radius) = cv2.minEnclosingCircle(c)
+    M = cv2.moments(c)
+    center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+    if radius > 2:
+        cv2.circle(frame, (int(x), int(y)), int(radius+3),(255, 0, 0), 2)
+        cv2.circle(frame, center, 3, (0, 0, 255), -1)
+        cv2.putText(frame,"centroid", (center[0]+10,center[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+        cv2.putText(frame,"("+str(center[0])+","+str(center[1])+")", (center[0]+10,center[1]+15), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+        a=center[0]-421
+        b=center[1]-298
+        c=(a*a+b*b)**0.5
+        cv2.putText(frame,"("+str(a)+","+str(b)+")", (760,575), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1) 
+        cv2.putText(frame,"("+str(c)+")", (760,589), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+
+#İlk çekilen fotoğraf, perspektif ile düzeltilen fotoğraf ve üzerine bilgiler yazdırılan fotoğraf gösterilir
+cv2.imshow('frame', frame)
+cv2.imshow('mask', mask)
+cv2.imshow('input', img)
+cv2.imwrite('/home/pi/Documents/goruntu_isleme/birlestirme/frame.jpg', frame)
+
+#Bir tuşa basılması beklenir
+cv2.waitKey(0)
+cv2.destroyAllWindows ()
