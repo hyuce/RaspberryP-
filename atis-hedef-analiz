@@ -1,67 +1,209 @@
-#Gerekli kütüphaneler dahil ediliyor
+#15.04.2018
+
 import cv2
 import numpy as np
 from shutil import copyfile
 import time
 
-#Kamera ile fotoğraf çekildi fotoğrafın kararmaması için program 1 sn bekletilir
-cap = cv2.VideoCapture(0)
-time.sleep(1)
-_, img = cap.read()
-#Çekilen görüntü kaydedilir
-cv2.imwrite('/home/pi/Documents/goruntu_isleme/birlestirme/cekilen.jpg', img)
+lcnts = 0
+lmermi = 0
 
-#Perspektif düzeltilir
-rows,cols,ch = img.shape
-pts1 = np.float32([[73,131],[562,122],[6,479],[639,479]])
-pts2 = np.float32([[0,0],[842,0],[0,595],[842,595]])
-matrix = cv2.getPerspectiveTransform(pts1, pts2)
-M = cv2.warpPerspective(img, matrix, (842, 595))
-frame = M
-#Perspektifi düzeltilen görüntü kaydedilir
-cv2.imwrite('/home/pi/Documents/goruntu_isleme/birlestirme/perspective.jpg', frame)
+frame = cv2.imread('frame.png', cv2.IMREAD_COLOR)
 
-#Görüntü maskelemeden önce gerekli çevirim işlemleri yapılır
 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 bgr = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
 
-#Maskeleme yapılacak alan aralığın alt ve üst hsv değerleri kaydedilir
 lower_black = np.array([ 0, 0, 0])
-upper_black = np.array([90,165,100])
+upper_black = np.array([50,50,50])
 
-#Maskeleme yapılır
 mask = cv2.inRange(hsv, lower_black, upper_black)
-#Maskeleme kaydedilir
-cv2.imwrite('/home/pi/Documents/goruntu_isleme/birlestirme/mask.jpg', mask)
 
-#Maskelenen görüntülerin şekilleri bulunur
 cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[-2]
 center = None
 
-#Şekillerin ağılık merkezi etrafına daire çizilir ve merkezden ne kadar uzakta olduğu hesaplanıp perspektif ile düzeltilen görünütünün üzerine yazdırılır
-if len(cnts) > 1:
+if len(cnts) > 0:
     c = max(cnts, key=cv2.contourArea)
+    lcnts = 1
+    lmermi = 1
+
+frame2 = cv2.imread('frame2.png', cv2.IMREAD_COLOR)
+
+gray2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
+bgr2 = cv2.cvtColor(gray2, cv2.COLOR_GRAY2BGR)
+hsv2 = cv2.cvtColor(bgr2, cv2.COLOR_BGR2HSV)
+
+mask2 = cv2.inRange(hsv2, lower_black, upper_black)
+
+cnts2 = cv2.findContours(mask2.copy(), cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[-2]
+center = None
+
+lcnts2 = len(cnts2)
+
+if (cnts2 != cnts ):
+    print("emre")
+    if (lcnts2 == lcnts):
+        print("emre")
+        c = cnts[0]
+        c2 = cnts2[0]
+        lmermi = 2
+    elif (lcnts2==1):
+        c = max(cnts2, key=cv2.contourArea)
+        lmermi = 1
+    elif (lcnts2==2):
+        c = cnts2[0]
+        c2 = cnts2[1]
+        lmermi = 2
+frame3 = cv2.imread('frame3.png', cv2.IMREAD_COLOR)
+
+gray3 = cv2.cvtColor(frame3, cv2.COLOR_BGR2GRAY)
+bgr3 = cv2.cvtColor(gray3, cv2.COLOR_GRAY2BGR)
+hsv3 = cv2.cvtColor(bgr3, cv2.COLOR_BGR2HSV)
+
+mask3 = cv2.inRange(hsv3, lower_black, upper_black)
+
+cnts3 = cv2.findContours(mask3.copy(), cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[-2]
+center3 = None
+
+lcnts3 = len(cnts3)
+
+if (cnts3 != cnts2 ):
+    if (lcnts3 == lcnts2):
+        if (lcnts3 == 1):
+            c3 = max(cnts3, key=cv2.contourArea)
+            lmermi  = lmermi+1
+        if (lcnts3 == 2):
+            c3 = max(cnts3, key=cv2.contourArea)
+            lmermi = 3
+    elif (len(cnts3)==1):
+        c = max(cnts3, key=cv2.contourArea)
+        lmermi = 1
+    elif (len(cnts3)==2):
+        if(lmermi ==1 ):
+            c = cnts3[0]
+            c2 = cnts3[1]
+            lmermi = 2
+       elif(lmermi == 2):
+            lmermi = 3
+            c3 = cnts3[0]
+
+    elif (len(cnts3)==3):
+        c = cnts3[0]
+        c2 = cnts3[1]
+        c3 = cnts3[2]
+        lmermi = 3
+
+if (lmermi == 0):
+    a = 842
+    b = 596
+    z = 956
+    #
+    a2 = 842
+    b2 = 596
+    z2 = 956
+    #
+    a3 = 842
+    b3 = 596
+    z3 = 956
+if (lmermi == 1):
     ((x, y), radius) = cv2.minEnclosingCircle(c)
     M = cv2.moments(c)
     center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-    if radius > 2:
-        cv2.circle(frame, (int(x), int(y)), int(radius+3),(255, 0, 0), 2)
-        cv2.circle(frame, center, 3, (0, 0, 255), -1)
-        cv2.putText(frame,"centroid", (center[0]+10,center[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
-        cv2.putText(frame,"("+str(center[0])+","+str(center[1])+")", (center[0]+10,center[1]+15), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
-        a=center[0]-421
-        b=center[1]-298
-        c=(a*a+b*b)**0.5
-        cv2.putText(frame,"("+str(a)+","+str(b)+")", (760,575), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1) 
-        cv2.putText(frame,"("+str(c)+")", (760,589), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+    x = center[0]
+    y = center[1]
+    a = x-421
+    b = y-298
+    z = (a*a+b*b)**0.5
+    cv2.circle(frame3, (int(x), int(y)), int(radius+23),(255, 0, 0), 2)
+    cv2.circle(frame3, center, 3, (0, 0, 255), -1)
+    cv2.putText(frame3,"centroid", (center[0]+10,center[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+    cv2.putText(frame3,"("+str(center[0])+","+str(center[1])+")", (center[0]+10,center[1]+15), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+    #
+    a2 = 842
+    b2 = 596
+    z2 = 956
+    #
+    a3 = 842
+    b3 = 596
+    z3 = 956
+if (lmermi == 2):
+    ((x, y), radius) = cv2.minEnclosingCircle(c)
+    M = cv2.moments(c)
+    center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+    x = center[0]
+    y = center[1]
+    a = x-421
+    b = y-298
+    z = (a*a+b*b)**0.5
+    cv2.circle(frame3, (int(x), int(y)), int(radius+23),(255, 0, 0), 2)
+    cv2.circle(frame3, center, 3, (0, 0, 255), -1)
+    cv2.putText(frame3,"centroid", (center[0]+10,center[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+    cv2.putText(frame3,"("+str(center[0])+","+str(center[1])+")", (center[0]+10,center[1]+15), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+    #
+    ((x, y), radius) = cv2.minEnclosingCircle(c2)
+    M2 = cv2.moments(c2)
+    center2 = (int(M2["m10"] / M["m00"]), int(M2["m01"] / M["m00"]))
+    x2 = center[0]
+    y2 = center[1]
+    a2 = x2-421
+    b2 = y2-298
+    z2 = (a2*a2+b2*b2)**0.5
+    cv2.circle(frame3, (int(x2), int(y2)), int(radius+23),(255, 0, 0), 2)
+    cv2.circle(frame3, center2, 3, (0, 0, 255), -1)
+    cv2.putText(frame3,"centroid", (center[0]+10,center[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+    cv2.putText(frame3,"("+str(center[0])+","+str(center[1])+")", (center[0]+10,center[1]+15), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+    #
+    a3 = 842
+    b3 = 594
+    z3 = 956
+if (lmermi == 3):
+    ((x, y), radius) = cv2.minEnclosingCircle(c)
+    M = cv2.moments(c)
+    center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+    x = center[0]
+    y = center[1]
+    a = x-421
+    b = y-298
+    z = (a*a+b*b)**0.5
+    cv2.circle(frame3, (int(x), int(y)), int(radius+23),(255, 0, 0), 2)
+    cv2.circle(frame3, center, 3, (0, 0, 255), -1)
+    cv2.putText(frame3,"centroid", (center[0]+10,center[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+    cv2.putText(frame3,"("+str(center[0])+","+str(center[1])+")", (center[0]+10,center[1]+15), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+    #
+   ((x, y), radius) = cv2.minEnclosingCircle(c2)
+    M2 = cv2.moments(c2)
+    center2 = (int(M2["m10"] / M2["m00"]), int(M2["m01"] / M2["m00"]))
+    x2 = center2[0]
+    y2 = center2[1]
+    a2 = x2-421
+    b2 = y2-298
+    z2 = (a2*a2+b2*b2)**0.5
+    cv2.circle(frame3, (int(x2), int(y2)), int(radius+23),(255, 0, 0), 2)
+    cv2.circle(frame3, center2, 3, (0, 0, 255), -1)
+    cv2.putText(frame3,"centroid", (center2[0]+10,center2[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+    cv2.putText(frame3,"("+str(center2[0])+","+str(center2[1])+")", (center2[0]+10,center2[1]+15), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+    #
+    ((x, y), radius) = cv2.minEnclosingCircle(c3)
+    M3 = cv2.moments(c3)
+    center3 = (int(M3["m10"] / M3["m00"]), int(M3["m01"] / M3["m00"]))
+    x3 = center3[0]
+    y3 = center3[1]
+    a3 = x3-421
+    b3 = y3-298
+    z3 = (a3*a3+b3*b3)**0.5
+    cv2.circle(frame3, (int(x3), int(y3)), int(radius+23),(255, 0, 0), 2)
+    cv2.circle(frame3, center3, 3, (0, 0, 255), -1)
+    cv2.putText(frame3,"centroid", (center3[0]+10,center3[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+    cv2.putText(frame3,"("+str(center3[0])+","+str(center3[1])+")", (center3[0]+10,center3[1]+15), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
+    
+H=100-(z+z2+z3)/10
+cv2.putText(frame3,"("+str(H)+")", (760,589), cv2.FONT_HERSHEY_SIMPLEX, 0.4,(0, 0, 255),1)
 
-#İlk çekilen fotoğraf, perspektif ile düzeltilen fotoğraf ve üzerine bilgiler yazdırılan fotoğraf gösterilir
-cv2.imshow('frame', frame)
-cv2.imshow('mask', mask)
-cv2.imshow('input', img)
-cv2.imwrite('/home/pi/Documents/goruntu_isleme/birlestirme/frame.jpg', frame)
+cv2.imshow('frame3', frame3)
 
-#Bir tuşa basılması beklenir
+print(z)
+print(z2)
+print(z3)
+
 cv2.waitKey(0)
 cv2.destroyAllWindows ()
